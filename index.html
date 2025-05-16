@@ -122,6 +122,8 @@
     Please open this site on your smartphone or tablet.
   </div>
 
+  <button class="btn" id="startBtn" onclick="startTracking()">Start Tracking</button>
+
   <h1>G-Force Tracker</h1>
   <div class="g-display" id="gForce">0.00 G</div>
   <div class="direction" id="direction">Direction: N/A</div>
@@ -138,125 +140,90 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script>
-    const isMobile = /Mobi|Android|iPhone|iPad|iPod|Touch/i.test(navigator.userAgent);
-    if (!isMobile) {
-      document.getElementById('desktopOnly').style.display = 'flex';
-    }
 
-    let maxG = 0;
-    let gData = [];
-    let timeLabels = [];
-    const MAX_POINTS = 60;
+<script>
+  const isMobile = /Mobi|Android|iPhone|iPad|iPod|Touch/i.test(navigator.userAgent);
+  if (!isMobile) {
+    document.getElementById('desktopOnly').style.display = 'flex';
+  }
 
-    const gForceEl = document.getElementById("gForce");
-    const maxGEl = document.getElementById("maxG");
-    const directionEl = document.getElementById("direction");
+  let maxG = 0;
+  let gData = [];
+  let timeLabels = [];
+  const MAX_POINTS = 60;
 
-    const ctx = document.getElementById('gChart').getContext('2d');
-    const chart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: timeLabels,
-        datasets: [{
-          label: 'G-Force',
-          data: gData,
-          borderColor: '#00f2ff',
-          backgroundColor: 'rgba(0, 242, 255, 0.1)',
-          borderWidth: 2,
-          tension: 0.3,
-          pointRadius: 0
-        }]
-      },
-      options: {
-        animation: false,
-        responsive: true,
-        scales: {
-          y: {
-            beginAtZero: true,
-            title: { display: true, text: 'G-Force' }
-          },
-          x: {
-            display: false
-          }
-        },
-        plugins: {
-          legend: { labels: { color: '#fff' } }
+  const gForceEl = document.getElementById("gForce");
+  const maxGEl = document.getElementById("maxG");
+  const directionEl = document.getElementById("direction");
+  const startBtn = document.getElementById("startBtn");
+
+  function getDirection(x, y, z) {
+    const axis = Math.abs(x) > Math.abs(y)
+      ? (Math.abs(x) > Math.abs(z) ? 'X' : 'Z')
+      : (Math.abs(y) > Math.abs(z) ? 'Y' : 'Z');
+    const sign = axis === 'X' ? x : axis === 'Y' ? y : z;
+    const dir = sign >= 0 ? '+' : '-';
+    return dir + axis;
+  }
+
+  function resetMaxG() {
+    maxG = 0;
+    maxGEl.innerText = "0.00 G";
+  }
+
+  function toggleChart() {
+    const container = document.getElementById("chartContainer");
+    container.style.display = container.style.display === "none" ? "block" : "none";
+  }
+
+  function startTracking() {
+    startBtn.style.display = 'none'; // Hide button after activation
+    if (typeof DeviceMotionEvent.requestPermission === 'function') {
+      DeviceMotionEvent.requestPermission().then(response => {
+        if (response === 'granted') {
+          window.addEventListener('devicemotion', handleMotion);
+        } else {
+          alert("Permission denied.");
         }
-      }
-    });
+      }).catch(console.error);
+    } else {
+      // Android or older iOS
+      window.addEventListener('devicemotion', handleMotion);
+    }
+  }
 
-    function getDirection(x, y, z) {
-      const axis = Math.abs(x) > Math.abs(y)
-        ? (Math.abs(x) > Math.abs(z) ? 'X' : 'Z')
-        : (Math.abs(y) > Math.abs(z) ? 'Y' : 'Z');
-      const sign = axis === 'X' ? x : axis === 'Y' ? y : z;
-      const dir = sign >= 0 ? '+' : '-';
-      return dir + axis;
+  function handleMotion(event) {
+    const acc = event.accelerationIncludingGravity;
+    if (!acc) return;
+
+    const { x, y, z } = acc;
+    const gForce = Math.sqrt(x * x + y * y + z * z) / 9.80665;
+    const roundedG = gForce.toFixed(2);
+
+    gForceEl.innerText = `${roundedG} G`;
+    gForceEl.style.transform = `scale(${1 + gForce * 0.02})`;
+
+    const direction = getDirection(x, y, z);
+    directionEl.innerText = `Direction: ${direction}`;
+
+    if (gForce > maxG) {
+      maxG = gForce;
+      maxGEl.innerText = `${maxG.toFixed(2)} G`;
     }
 
-    function resetMaxG() {
-      maxG = 0;
-      maxGEl.innerText = "0.00 G";
+    const now = new Date();
+    const timeLabel = now.toLocaleTimeString().split(' ')[0];
+
+    if (gData.length >= MAX_POINTS) {
+      gData.shift();
+      timeLabels.shift();
     }
 
-    function toggleChart() {
-      const container = document.getElementById("chartContainer");
-      container.style.display = container.style.display === "none" ? "block" : "none";
-    }
+    gData.push(gForce);
+    timeLabels.push(timeLabel);
+    chart.update();
+  }
+</script>
 
-    function initMotion() {
-      if (typeof DeviceMotionEvent.requestPermission === 'function') {
-        DeviceMotionEvent.requestPermission().then(response => {
-          if (response === 'granted') {
-            window.addEventListener('devicemotion', handleMotion);
-          } else {
-            alert("Motion permission denied.");
-          }
-        }).catch(console.error);
-      } else {
-        window.addEventListener('devicemotion', handleMotion);
-      }
-    }
-
-    function handleMotion(event) {
-      const acc = event.accelerationIncludingGravity;
-      if (!acc) return;
-
-      const { x, y, z } = acc;
-      const gForce = Math.sqrt(x * x + y * y + z * z) / 9.80665;
-      const roundedG = gForce.toFixed(2);
-
-      gForceEl.innerText = `${roundedG} G`;
-      gForceEl.style.transform = `scale(${1 + gForce * 0.02})`;
-
-      const direction = getDirection(x, y, z);
-      directionEl.innerText = `Direction: ${direction}`;
-
-      if (gForce > maxG) {
-        maxG = gForce;
-        maxGEl.innerText = `${maxG.toFixed(2)} G`;
-      }
-
-      const now = new Date();
-      const timeLabel = now.toLocaleTimeString().split(' ')[0];
-
-      if (gData.length >= MAX_POINTS) {
-        gData.shift();
-        timeLabels.shift();
-      }
-
-      gData.push(gForce);
-      timeLabels.push(timeLabel);
-      chart.update();
-    }
-
-    // Only auto-init if on mobile
-    if (isMobile) {
-      window.addEventListener('load', () => {
-        setTimeout(initMotion, 500); // Give the page time to fully load
-      });
-    }
-  </script>
 </body>
 </html>
