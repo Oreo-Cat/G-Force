@@ -19,6 +19,23 @@
       box-sizing: border-box;
     }
 
+    #desktopOnly {
+      display: none;
+      color: #fff;
+      background: #000;
+      width: 100%;
+      height: 100vh;
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 9999;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 40px;
+      font-size: 1.4rem;
+    }
+
     h1 {
       font-size: 2.5rem;
       margin-bottom: 10px;
@@ -100,6 +117,11 @@
   </style>
 </head>
 <body>
+  <div id="desktopOnly">
+    ⚠️ This application only works on **mobile devices** with motion sensors.  
+    Please open this site on your smartphone or tablet.
+  </div>
+
   <h1>G-Force Tracker</h1>
   <div class="g-display" id="gForce">0.00 G</div>
   <div class="direction" id="direction">Direction: N/A</div>
@@ -115,9 +137,13 @@
     <canvas id="gChart"></canvas>
   </div>
 
-  <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
+    const isMobile = /Mobi|Android|iPhone|iPad|iPod|Touch/i.test(navigator.userAgent);
+    if (!isMobile) {
+      document.getElementById('desktopOnly').style.display = 'flex';
+    }
+
     let maxG = 0;
     let gData = [];
     let timeLabels = [];
@@ -126,25 +152,6 @@
     const gForceEl = document.getElementById("gForce");
     const maxGEl = document.getElementById("maxG");
     const directionEl = document.getElementById("direction");
-
-    function getDirection(x, y, z) {
-      const axis = Math.abs(x) > Math.abs(y)
-        ? (Math.abs(x) > Math.abs(z) ? 'X' : 'Z')
-        : (Math.abs(y) > Math.abs(z) ? 'Y' : 'Z');
-      const sign = axis === 'X' ? x : axis === 'Y' ? y : z;
-      const dir = sign >= 0 ? '+' : '-';
-      return dir + axis;
-    }
-
-    function resetMaxG() {
-      maxG = 0;
-      maxGEl.innerText = "0.00 G";
-    }
-
-    function toggleChart() {
-      const container = document.getElementById("chartContainer");
-      container.style.display = container.style.display === "none" ? "block" : "none";
-    }
 
     const ctx = document.getElementById('gChart').getContext('2d');
     const chart = new Chart(ctx, {
@@ -179,7 +186,40 @@
       }
     });
 
-    window.addEventListener('devicemotion', (event) => {
+    function getDirection(x, y, z) {
+      const axis = Math.abs(x) > Math.abs(y)
+        ? (Math.abs(x) > Math.abs(z) ? 'X' : 'Z')
+        : (Math.abs(y) > Math.abs(z) ? 'Y' : 'Z');
+      const sign = axis === 'X' ? x : axis === 'Y' ? y : z;
+      const dir = sign >= 0 ? '+' : '-';
+      return dir + axis;
+    }
+
+    function resetMaxG() {
+      maxG = 0;
+      maxGEl.innerText = "0.00 G";
+    }
+
+    function toggleChart() {
+      const container = document.getElementById("chartContainer");
+      container.style.display = container.style.display === "none" ? "block" : "none";
+    }
+
+    function initMotion() {
+      if (typeof DeviceMotionEvent.requestPermission === 'function') {
+        DeviceMotionEvent.requestPermission().then(response => {
+          if (response === 'granted') {
+            window.addEventListener('devicemotion', handleMotion);
+          } else {
+            alert("Motion permission denied.");
+          }
+        }).catch(console.error);
+      } else {
+        window.addEventListener('devicemotion', handleMotion);
+      }
+    }
+
+    function handleMotion(event) {
       const acc = event.accelerationIncludingGravity;
       if (!acc) return;
 
@@ -208,9 +248,15 @@
 
       gData.push(gForce);
       timeLabels.push(timeLabel);
-
       chart.update();
-    });
+    }
+
+    // Only auto-init if on mobile
+    if (isMobile) {
+      window.addEventListener('load', () => {
+        setTimeout(initMotion, 500); // Give the page time to fully load
+      });
+    }
   </script>
 </body>
 </html>
