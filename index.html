@@ -2,14 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>G-Force Tracker</title>
+  <meta name="screen-orientation" content="portrait" />
+
   <style>
     * {
       box-sizing: border-box;
     }
 
-    body {
+    html, body {
       margin: 0;
       font-family: 'Segoe UI', sans-serif;
       background: radial-gradient(ellipse at center, #0f2027, #203a43, #2c5364);
@@ -30,6 +32,27 @@
       justify-content: center;
       padding: 40px;
       text-align: center;
+      font-size: 1.2rem;
+    }
+
+    @media screen and (orientation: landscape) {
+      body::before {
+        content: "🔄 Please rotate your device to portrait mode";
+        position: fixed;
+        top: 0;
+        left: 0;
+        background: #000;
+        color: #fff;
+        font-size: 1.5rem;
+        width: 100vw;
+        height: 100vh;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 20px;
+      }
     }
 
     .container {
@@ -131,6 +154,10 @@
 </head>
 <body>
 
+  <div id="desktopOnly">
+    ⚠️ This application only works on mobile devices with motion sensors.<br><br>
+    Please open this site on your smartphone or tablet in portrait mode.
+  </div>
 
   <canvas id="bgChart"></canvas>
 
@@ -151,115 +178,125 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-  let maxG = 0;
-  let gData = [];
-  let timeLabels = [];
-  const MAX_POINTS = 80;
-  let bgChart;
+  <script>
+    // ✅ Modern mobile detection
+    const isMobile = (
+      typeof window.orientation !== "undefined" ||
+      navigator.userAgent.includes("Mobi") ||
+      navigator.maxTouchPoints > 1
+    );
 
-  const gForceEl = document.getElementById("gForce");
-  const maxGEl = document.getElementById("maxG");
-  const startBtn = document.getElementById("startBtn");
-  const compassDot = document.getElementById("compassDot");
+    if (!isMobile) {
+      document.getElementById('desktopOnly').style.display = 'flex';
+    }
 
-  function resetMaxG() {
-    maxG = 0;
-    maxGEl.innerText = "0.00 G";
-  }
+    let maxG = 0;
+    let gData = [];
+    let timeLabels = [];
+    const MAX_POINTS = 80;
+    let bgChart;
 
-  function initBackgroundChart() {
-    const ctx = document.getElementById('bgChart').getContext('2d');
-    bgChart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: timeLabels,
-        datasets: [{
-          data: gData,
-          borderColor: '#00f2ff',
-          backgroundColor: 'transparent',
-          borderWidth: 1,
-          tension: 0.2,
-          pointRadius: 0
-        }]
-      },
-      options: {
-        animation: false,
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          y: {
-            display: false,
-            min: 0,
-            max: 10 // ✅ LOCKED scale
-          },
-          x: {
-            display: false
-          }
+    const gForceEl = document.getElementById("gForce");
+    const maxGEl = document.getElementById("maxG");
+    const startBtn = document.getElementById("startBtn");
+    const compassDot = document.getElementById("compassDot");
+
+    function resetMaxG() {
+      maxG = 0;
+      maxGEl.innerText = "0.00 G";
+    }
+
+    function initBackgroundChart() {
+      const ctx = document.getElementById('bgChart').getContext('2d');
+      bgChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: timeLabels,
+          datasets: [{
+            data: gData,
+            borderColor: '#00f2ff',
+            backgroundColor: 'transparent',
+            borderWidth: 1,
+            tension: 0.2,
+            pointRadius: 0
+          }]
         },
-        plugins: {
-          legend: { display: false },
-          tooltip: { enabled: false }
+        options: {
+          animation: false,
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              display: false,
+              min: 0,
+              max: 10  // ✅ Locked G-force scale
+            },
+            x: {
+              display: false
+            }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: { enabled: false }
+          }
         }
+      });
+    }
+
+    function startTracking() {
+      startBtn.style.display = 'none';
+
+      if (!bgChart) initBackgroundChart();
+
+      if (typeof DeviceMotionEvent.requestPermission === 'function') {
+        DeviceMotionEvent.requestPermission().then(response => {
+          if (response === 'granted') {
+            window.addEventListener('devicemotion', handleMotion);
+          } else {
+            alert("Motion permission denied.");
+          }
+        }).catch(console.error);
+      } else {
+        window.addEventListener('devicemotion', handleMotion);
       }
-    });
-  }
-
-  function startTracking() {
-    startBtn.style.display = 'none';
-
-    if (!bgChart) initBackgroundChart();
-
-    if (typeof DeviceMotionEvent.requestPermission === 'function') {
-      DeviceMotionEvent.requestPermission().then(response => {
-        if (response === 'granted') {
-          window.addEventListener('devicemotion', handleMotion);
-        } else {
-          alert("Motion permission denied.");
-        }
-      }).catch(console.error);
-    } else {
-      window.addEventListener('devicemotion', handleMotion);
-    }
-  }
-
-  function handleMotion(event) {
-    const acc = event.accelerationIncludingGravity;
-    if (!acc) return;
-
-    const { x, y, z } = acc;
-    const gForce = Math.sqrt(x * x + y * y + z * z) / 9.80665;
-    const roundedG = gForce.toFixed(2);
-
-    gForceEl.innerText = `${roundedG} G`;
-    gForceEl.style.transform = `scale(${1 + gForce * 0.02})`;
-
-    if (gForce > maxG) {
-      maxG = gForce;
-      maxGEl.innerText = `${maxG.toFixed(2)} G`;
     }
 
-    // Update compass dot direction
-    const scale = 30;
-    const dx = Math.max(-1, Math.min(1, x / 9.8)) * scale;
-    const dy = Math.max(-1, Math.min(1, y / 9.8)) * scale;
+    function handleMotion(event) {
+      const acc = event.accelerationIncludingGravity;
+      if (!acc) return;
 
-    compassDot.style.transform = `translate(${dx}px, ${-dy}px)`;
+      const { x, y, z } = acc;
+      const gForce = Math.sqrt(x * x + y * y + z * z) / 9.80665;
+      const roundedG = gForce.toFixed(2);
 
-    // Update chart
-    const now = new Date();
-    const timeLabel = now.toLocaleTimeString().split(' ')[0];
+      gForceEl.innerText = `${roundedG} G`;
+      gForceEl.style.transform = `scale(${1 + gForce * 0.02})`;
 
-    if (gData.length >= MAX_POINTS) {
-      gData.shift();
-      timeLabels.shift();
+      if (gForce > maxG) {
+        maxG = gForce;
+        maxGEl.innerText = `${maxG.toFixed(2)} G`;
+      }
+
+      // Update compass dot direction
+      const scale = 30;
+      const dx = Math.max(-1, Math.min(1, x / 9.8)) * scale;
+      const dy = Math.max(-1, Math.min(1, y / 9.8)) * scale;
+
+      compassDot.style.transform = `translate(${dx}px, ${-dy}px)`;
+
+      // Update chart
+      const now = new Date();
+      const timeLabel = now.toLocaleTimeString().split(' ')[0];
+
+      if (gData.length >= MAX_POINTS) {
+        gData.shift();
+        timeLabels.shift();
+      }
+
+      gData.push(gForce);
+      timeLabels.push(timeLabel);
+      if (bgChart) bgChart.update();
     }
-
-    gData.push(gForce);
-    timeLabels.push(timeLabel);
-    if (bgChart) bgChart.update();
-  }
-</script>
-
+  </script>
 </body>
 </html>
