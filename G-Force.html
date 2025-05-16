@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>G-Force Tracker</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: radial-gradient(circle at center, #0f2027, #203a43, #2c5364);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 20px;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+      text-shadow: 0 0 5px #00f2ff, 0 0 15px #00f2ff;
+    }
+
+    .g-display {
+      font-size: 5rem;
+      font-weight: bold;
+      margin: 20px 0 10px;
+      color: #00f2ff;
+      text-shadow: 0 0 20px #00f2ff;
+      transition: transform 0.2s ease;
+    }
+
+    .direction {
+      font-size: 1.2rem;
+      color: #ffeb3b;
+      margin-top: -10px;
+    }
+
+    .max-container {
+      margin-top: 20px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 15px 25px;
+      box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+      text-align: center;
+    }
+
+    .max-g {
+      font-size: 2rem;
+      color: #76ff03;
+    }
+
+    .btn {
+      margin: 10px 5px;
+      padding: 10px 20px;
+      font-size: 1rem;
+      background: #00f2ff;
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      box-shadow: 0 5px 15px rgba(0, 255, 255, 0.4);
+      transition: background 0.3s ease;
+    }
+
+    .btn:hover {
+      background: #00c3cc;
+    }
+
+    #chartContainer {
+      display: none;
+      width: 100%;
+      max-width: 800px;
+      margin-top: 30px;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+    }
+
+    canvas {
+      width: 100% !important;
+      height: 300px !important;
+    }
+
+    @media (max-width: 600px) {
+      .g-display {
+        font-size: 3.5rem;
+      }
+
+      .max-g {
+        font-size: 1.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>G-Force Tracker</h1>
+  <div class="g-display" id="gForce">0.00 G</div>
+  <div class="direction" id="direction">Direction: N/A</div>
+
+  <div class="max-container">
+    <div>Max G-Force:</div>
+    <div class="max-g" id="maxG">0.00 G</div>
+    <button class="btn" onclick="resetMaxG()">Reset Max</button>
+    <button class="btn" onclick="toggleChart()">Chart Mode</button>
+  </div>
+
+  <div id="chartContainer">
+    <canvas id="gChart"></canvas>
+  </div>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    let maxG = 0;
+    let gData = [];
+    let timeLabels = [];
+    const MAX_POINTS = 60;
+
+    const gForceEl = document.getElementById("gForce");
+    const maxGEl = document.getElementById("maxG");
+    const directionEl = document.getElementById("direction");
+
+    function getDirection(x, y, z) {
+      const axis = Math.abs(x) > Math.abs(y)
+        ? (Math.abs(x) > Math.abs(z) ? 'X' : 'Z')
+        : (Math.abs(y) > Math.abs(z) ? 'Y' : 'Z');
+      const sign = axis === 'X' ? x : axis === 'Y' ? y : z;
+      const dir = sign >= 0 ? '+' : '-';
+      return dir + axis;
+    }
+
+    function resetMaxG() {
+      maxG = 0;
+      maxGEl.innerText = "0.00 G";
+    }
+
+    function toggleChart() {
+      const container = document.getElementById("chartContainer");
+      container.style.display = container.style.display === "none" ? "block" : "none";
+    }
+
+    const ctx = document.getElementById('gChart').getContext('2d');
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: timeLabels,
+        datasets: [{
+          label: 'G-Force',
+          data: gData,
+          borderColor: '#00f2ff',
+          backgroundColor: 'rgba(0, 242, 255, 0.1)',
+          borderWidth: 2,
+          tension: 0.3,
+          pointRadius: 0
+        }]
+      },
+      options: {
+        animation: false,
+        responsive: true,
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: { display: true, text: 'G-Force' }
+          },
+          x: {
+            display: false
+          }
+        },
+        plugins: {
+          legend: { labels: { color: '#fff' } }
+        }
+      }
+    });
+
+    window.addEventListener('devicemotion', (event) => {
+      const acc = event.accelerationIncludingGravity;
+      if (!acc) return;
+
+      const { x, y, z } = acc;
+      const gForce = Math.sqrt(x * x + y * y + z * z) / 9.80665;
+      const roundedG = gForce.toFixed(2);
+
+      gForceEl.innerText = `${roundedG} G`;
+      gForceEl.style.transform = `scale(${1 + gForce * 0.02})`;
+
+      const direction = getDirection(x, y, z);
+      directionEl.innerText = `Direction: ${direction}`;
+
+      if (gForce > maxG) {
+        maxG = gForce;
+        maxGEl.innerText = `${maxG.toFixed(2)} G`;
+      }
+
+      const now = new Date();
+      const timeLabel = now.toLocaleTimeString().split(' ')[0];
+
+      if (gData.length >= MAX_POINTS) {
+        gData.shift();
+        timeLabels.shift();
+      }
+
+      gData.push(gForce);
+      timeLabels.push(timeLabel);
+
+      chart.update();
+    });
+  </script>
+</body>
+</html>
