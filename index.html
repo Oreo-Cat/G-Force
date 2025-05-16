@@ -37,7 +37,7 @@
 
     @media screen and (orientation: landscape) {
       body::before {
-        content: "🔄 Please rotate your device to portrait mode";
+        content: "🔄 Please rotate your device to portrait mode or switch to a mobile device.";
         position: fixed;
         top: 0;
         left: 0;
@@ -153,12 +153,6 @@
   </style>
 </head>
 <body>
-
-  <div id="desktopOnly" style="display: none;">
-    ⚠️ This application only works on mobile devices with motion sensors.<br><br>
-    Please open this site on your smartphone or tablet in portrait mode.
-  </div>
-
   <canvas id="bgChart"></canvas>
 
   <div class="container">
