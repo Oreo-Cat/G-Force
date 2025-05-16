@@ -156,7 +156,7 @@
     let maxG = 0;
     let gData = [];
     let timeLabels = [];
-    const MAX_POINTS = 60;
+    const MAX_POINTS = 80;
     let bgChart;
 
     const gForceEl = document.getElementById("gForce");
@@ -189,8 +189,13 @@
           responsive: true,
           maintainAspectRatio: false,
           scales: {
-            y: { display: false },
-            x: { display: false }
+            y: {
+            display: false,
+            min: 0,
+            max: 10
+          },
+          x: {
+            display: false
           },
           plugins: {
             legend: { display: false },
@@ -235,7 +240,7 @@
       }
 
       // Update compass dot direction
-      const scale = 10;
+      const scale = 30;
       const dx = Math.max(-1, Math.min(1, x / 9.8)) * scale;
       const dy = Math.max(-1, Math.min(1, y / 9.8)) * scale;
 
