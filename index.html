@@ -155,7 +155,13 @@
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
-    const isMobile = /Mobi|Android|iPhone|iPad|iPod|Touch/i.test(navigator.userAgent);
+    // ✅ UPDATED MOBILE DETECTION
+    const isMobile = (
+      typeof window.orientation !== "undefined" ||
+      navigator.userAgent.includes("Mobi") ||
+      navigator.maxTouchPoints > 1
+    );
+
     if (!isMobile) {
       document.getElementById('desktopOnly').style.display = 'flex';
     }
@@ -242,10 +248,7 @@
       }
 
       // Update compass dot direction
-      const centerX = 60;
-      const centerY = 60;
       const scale = 10;
-
       const dx = Math.max(-1, Math.min(1, x / 9.8)) * scale;
       const dy = Math.max(-1, Math.min(1, y / 9.8)) * scale;
 
