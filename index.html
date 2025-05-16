@@ -155,16 +155,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
-    // ✅ UPDATED MOBILE DETECTION
-    const isMobile = (
-      typeof window.orientation !== "undefined" ||
-      navigator.userAgent.includes("Mobi") ||
-      navigator.maxTouchPoints > 1
-    );
-
-    if (!isMobile) {
-      document.getElementById('desktopOnly').style.display = 'flex';
-    }
 
     let maxG = 0;
     let gData = [];
